@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalkulator Subnet IPv4 - Pelatihan Jaringan</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark">
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div>
+          <h1>Kalkulator Subnet IPv4</h1>
+          <p class="subtitle">Hitung Network, Broadcast, Range Host, dan Jumlah Host secara instan</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="themeToggleBtn" class="btn-icon" title="Ganti Tema (Gelap / Terang)">
+          <svg id="sunIcon" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg id="moonIcon" class="icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="main-grid">
+      <!-- Input Card -->
+      <section class="card input-card">
+        <div class="card-header">
+          <h2>Input Parameter IP</h2>
+          <span class="badge">IPv4 Subnetting</span>
+        </div>
+
+        <div class="form-group">
+          <label for="ipInput">IP Address</label>
+          <div class="input-wrapper">
+            <input type="text" id="ipInput" placeholder="Contoh: 192.168.1.50 atau 192.168.1.50/24" value="192.168.1.100" autocomplete="off" spellcheck="false">
+            <button id="clearIpBtn" class="clear-btn" title="Hapus input">&times;</button>
+          </div>
+          <p id="ipError" class="input-helper error-text hidden">Format IP tidak valid (contoh: 192.168.1.1)</p>
+          <p class="input-hint">Tips: Kamu bisa langsung mengetikkan format CIDR seperti <code>10.0.0.1/22</code></p>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="prefixSelect">Prefix Subnet (CIDR)</label>
+            <select id="prefixSelect"></select>
+          </div>
+          <div class="form-group prefix-num-group">
+            <label for="prefixInput">Prefix (0-32)</label>
+            <div class="prefix-input-wrap">
+              <span class="prefix-slash">/</span>
+              <input type="number" id="prefixInput" min="0" max="32" value="24">
+            </div>
+          </div>
+        </div>
+
+        <!-- Slider Prefix -->
+        <div class="form-group">
+          <div class="slider-header">
+            <label for="prefixSlider">Slider Prefix CIDR</label>
+            <span class="slider-val-badge">/<span id="sliderValue">24</span></span>
+          </div>
+          <input type="range" id="prefixSlider" min="0" max="32" value="24" class="range-slider">
+          <div class="slider-ticks">
+            <span>/0</span>
+            <span>/8</span>
+            <span>/16</span>
+            <span>/24</span>
+            <span>/30</span>
+            <span>/32</span>
+          </div>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="form-group">
+          <label>Pilihan Cepat (Presets)</label>
+          <div class="preset-buttons">
+            <button class="preset-btn" data-ip="10.0.0.1" data-prefix="8">10.0.0.1/8 (Class A)</button>
+            <button class="preset-btn" data-ip="172.16.10.1" data-prefix="16">172.16.10.1/16 (Class B)</button>
+            <button class="preset-btn active" data-ip="192.168.1.100" data-prefix="24">192.168.1.100/24 (Class C)</button>
+            <button class="preset-btn" data-ip="192.168.10.55" data-prefix="26">/26 (62 Hosts)</button>
+            <button class="preset-btn" data-ip="192.168.1.1" data-prefix="28">/28 (14 Hosts)</button>
+            <button class="preset-btn" data-ip="10.20.30.1" data-prefix="30">/30 (P2P - 2 Hosts)</button>
+          </div>
+        </div>
+
+        <!-- Action Row -->
+        <div class="action-buttons-row">
+          <button id="copySummaryBtn" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Salin Ringkasan
+          </button>
+          <button id="resetBtn" class="btn btn-secondary">
+            Reset Default
+          </button>
+        </div>
+      </section>
+
+      <!-- Results Section -->
+      <section class="results-container">
+        <!-- Main Stats Summary -->
+        <div class="summary-cards-grid">
+          <div class="stat-card stat-network">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Network Address</span>
+              <span id="resNetwork" class="stat-value mono">-</span>
+              <span id="resNetworkCidr" class="stat-sub mono">-</span>
+            </div>
+            <button class="copy-field-btn" data-target="resNetwork" title="Salin Network Address">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+
+          <div class="stat-card stat-broadcast">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4.93 4.93a10 10 0 0 1 14.14 0"></path>
+                <path d="M7.76 7.76a6 6 0 0 1 8.48 0"></path>
+                <circle cx="12" cy="12" r="2"></circle>
+                <path d="M12 14v8"></path>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Broadcast Address</span>
+              <span id="resBroadcast" class="stat-value mono">-</span>
+              <span class="stat-sub">Alamat broadcast subnet</span>
+            </div>
+            <button class="copy-field-btn" data-target="resBroadcast" title="Salin Broadcast Address">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+
+          <div class="stat-card stat-range">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 3h5v5"></path>
+                <path d="M4 20L21 3"></path>
+                <path d="M21 16v5h-5"></path>
+                <path d="M15 15l6 6"></path>
+                <path d="M4 4l5 5"></path>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Rentang Host (Usable IP Range)</span>
+              <span id="resHostRange" class="stat-value mono">-</span>
+              <span id="resRangeSub" class="stat-sub">Host Pertama s/d Terakhir</span>
+            </div>
+            <button class="copy-field-btn" data-target="resHostRange" title="Salin Range Host">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+
+          <div class="stat-card stat-hosts">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Jumlah Host Valid (Usable)</span>
+              <span id="resUsableHosts" class="stat-value highlight-num">-</span>
+              <span id="resTotalHosts" class="stat-sub">Total Alamat IP: -</span>
+            </div>
+            <button class="copy-field-btn" data-target="resUsableHosts" title="Salin Jumlah Host">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Detailed Table Card -->
+        <div class="card detail-card">
+          <div class="card-header">
+            <h3>Detail Lengkap Konfigurasi</h3>
+            <span class="badge badge-outline">RFC 791 / RFC 4632</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="detail-table">
+              <tbody>
+                <tr>
+                  <td class="col-title">IP Address Masukan</td>
+                  <td id="tableIp" class="mono font-bold">-</td>
+                  <td class="col-meta"><span id="tableIpType" class="tag">-</span></td>
+                </tr>
+                <tr>
+                  <td class="col-title">Subnet Mask</td>
+                  <td id="tableMask" class="mono">-</td>
+                  <td class="col-meta mono text-muted" id="tableMaskHex">-</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Wildcard Mask</td>
+                  <td id="tableWildcard" class="mono">-</td>
+                  <td class="col-meta text-muted">Invers dari Subnet Mask</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Network Address</td>
+                  <td id="tableNetwork" class="mono font-bold text-success">-</td>
+                  <td class="col-meta text-muted">ID Jaringan</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Broadcast Address</td>
+                  <td id="tableBroadcast" class="mono font-bold text-warning">-</td>
+                  <td class="col-meta text-muted">Paket Broadcast Subnet</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Host Pertama (First Usable)</td>
+                  <td id="tableFirstHost" class="mono">-</td>
+                  <td class="col-meta text-muted">Biasa digunakan untuk Gateway</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Host Terakhir (Last Usable)</td>
+                  <td id="tableLastHost" class="mono">-</td>
+                  <td class="col-meta text-muted">Batas host yang dapat dipakai</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Jumlah Host Valid</td>
+                  <td id="tableUsableCount" class="mono font-bold text-primary">-</td>
+                  <td class="col-meta text-muted" id="tableFormula">2<sup>(32-n)</sup> - 2</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Total Alamat IP</td>
+                  <td id="tableTotalCount" class="mono">-</td>
+                  <td class="col-meta text-muted">Termasuk Network & Broadcast</td>
+                </tr>
+                <tr>
+                  <td class="col-title">Kelas Alamat IP</td>
+                  <td id="tableClass" class="font-bold">-</td>
+                  <td class="col-meta text-muted" id="tableClassRange">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Binary Representation Card -->
+        <div class="card binary-card">
+          <div class="card-header">
+            <h3>Visualisasi Biner & Bitmask</h3>
+            <div class="binary-legend">
+              <span class="legend-item"><span class="legend-box bit-net"></span> Bit Network (<span id="netBitsCount">24</span>)</span>
+              <span class="legend-item"><span class="legend-box bit-host"></span> Bit Host (<span id="hostBitsCount">8</span>)</span>
+            </div>
+          </div>
+
+          <!-- Bit Bar Visualizer -->
+          <div class="bit-progress-wrapper">
+            <div id="bitProgressBar" class="bit-progress-bar">
+              <div id="bitNetBar" class="bit-bar-segment net-segment" style="width: 75%;">75% Network</div>
+              <div id="bitHostBar" class="bit-bar-segment host-segment" style="width: 25%;">25% Host</div>
+            </div>
+          </div>
+
+          <!-- Binary Table -->
+          <div class="binary-breakdown">
+            <div class="binary-row">
+              <div class="binary-label">IP Address:</div>
+              <div id="binIp" class="binary-bits mono">-</div>
+            </div>
+            <div class="binary-row">
+              <div class="binary-label">Subnet Mask:</div>
+              <div id="binMask" class="binary-bits mono">-</div>
+            </div>
+            <div class="binary-row">
+              <div class="binary-label">Network ID:</div>
+              <div id="binNetwork" class="binary-bits mono">-</div>
+            </div>
+            <div class="binary-row">
+              <div class="binary-label">Broadcast:</div>
+              <div id="binBroadcast" class="binary-bits mono">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subnet Reference Cheat Sheet Accordion -->
+        <div class="card accordion-card">
+          <div class="accordion-header" id="cheatSheetToggle">
+            <div class="header-left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              <span>Tabel Referensi CIDR / Subnet Mask (Cheat Sheet /0 s/d /32)</span>
+            </div>
+            <svg id="cheatSheetArrow" class="icon-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div id="cheatSheetContent" class="accordion-body hidden">
+            <p class="table-info-text">Tabel ini merangkum subnet mask, jumlah alamat total, dan host yang dapat digunakan untuk setiap prefix CIDR IPv4.</p>
+            <div class="table-responsive max-h-table">
+              <table class="cheat-sheet-table">
+                <thead>
+                  <tr>
+                    <th>Prefix</th>
+                    <th>Subnet Mask</th>
+                    <th>Wildcard Mask</th>
+                    <th>Jumlah Host Valid</th>
+                    <th>Total IP</th>
+                  </tr>
+                </thead>
+                <tbody id="cheatSheetTbody">
+                  <!-- Generated dynamically via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+      <span id="toastMsg">Teks disalin ke clipboard!</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Kalkulator Subnet IPv4 &bull; Dirancang untuk Pelatihan & Praktikum Jaringan Komputer</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
