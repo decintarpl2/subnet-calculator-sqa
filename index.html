@@ -1763,103 +1763,86 @@
       return true;
     }
 
-    // Subnet Calculation Engine
-    function calculateSubnet() {
+    // Subnet Calculation Engine (Connected to /api/subnet)
+    async function calculateSubnet() {
       clearInputErrors();
       const ipVal = document.getElementById('subnetIpInput').value.trim();
       const prefixVal = parseInt(document.getElementById('subnetPrefixNum').value, 10);
 
-      let hasError = false;
+      try {
+        const response = await fetch(`/api/subnet?ip=${encodeURIComponent(ipVal)}&prefix=${encodeURIComponent(prefixVal)}`);
+        
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({ detail: "Gagal memproses perhitungan subnet." }));
+          const errorMsg = errData.detail || "Terjadi kesalahan pada parameter subnet.";
 
-      // Validate IP
-      if (!validateIp(ipVal)) {
-        document.getElementById('subnetIpInput').classList.add('is-invalid');
-        const errEl = document.getElementById('subnetIpError');
-        errEl.classList.remove('hidden');
-        document.getElementById('subnetIpErrorText').innerText = "Format IP tidak valid! Masukkan 4 oktet angka 0-255 (contoh: 192.168.1.1).";
-        hasError = true;
-      }
+          document.getElementById('subnetIpInput').classList.add('is-invalid');
+          const errEl = document.getElementById('subnetIpError');
+          errEl.classList.remove('hidden');
+          document.getElementById('subnetIpErrorText').innerText = errorMsg;
 
-      // Validate Prefix
-      if (isNaN(prefixVal) || prefixVal < 0 || prefixVal > 32) {
-        document.getElementById('subnetPrefixNum').classList.add('is-invalid');
-        document.getElementById('subnetPrefixError').classList.remove('hidden');
-        hasError = true;
-      }
+          document.getElementById('subnetEmptyState').classList.add('hidden');
+          document.getElementById('subnetSuccessState').classList.add('hidden');
+          document.getElementById('subnetErrorState').classList.remove('hidden');
+          document.getElementById('subnetErrorBannerMsg').innerText = errorMsg;
 
-      if (hasError) {
+          if (document.getElementById('btnStateError')) {
+            document.getElementById('btnStateError').classList.add('active');
+            document.getElementById('btnStateSuccess').classList.remove('active');
+            document.getElementById('btnStateEmpty').classList.remove('active');
+          }
+          return;
+        }
+
+        const data = await response.json();
+
+        // Calculate auxiliary display values
+        const maskParts = data.mask.split('.').map(Number);
+        const wildcardStr = maskParts.map(o => 255 - o).join('.');
+        const totalHosts = Math.pow(2, 32 - prefixVal);
+
+        // Detect Class based on network address
+        const firstOctet = parseInt(data.network.split('.')[0], 10);
+        let ipClass = "Kelas C";
+        if (firstOctet >= 1 && firstOctet <= 126) ipClass = "Kelas A";
+        else if (firstOctet >= 128 && firstOctet <= 191) ipClass = "Kelas B";
+        else if (firstOctet >= 192 && firstOctet <= 223) ipClass = "Kelas C";
+        else if (firstOctet >= 224 && firstOctet <= 239) ipClass = "Kelas D (Multicast)";
+        else ipClass = "Kelas E (Eksperimental)";
+
+        const broadcastDisplay = data.broadcast === null ? "None (RFC 3021 / Host Route)" : data.broadcast;
+        const rangeDisplay = prefixVal === 32 ? data.first_host : `${data.first_host} - ${data.last_host}`;
+
+        // Update UI Elements
+        document.getElementById('sumCidrDisplay').innerText = `${data.network}/${prefixVal}`;
+        document.getElementById('sumClassDisplay').innerText = `${ipClass} \u2022 Standar Subnet`;
+        document.getElementById('resSubnetMask').innerText = data.mask;
+        document.getElementById('resWildcardMask').innerText = `Wildcard: ${wildcardStr}`;
+        document.getElementById('resUsableHosts').innerText = data.usable_hosts.toLocaleString('id-ID');
+        document.getElementById('resTotalHosts').innerText = `Total Alokasi: ${totalHosts.toLocaleString('id-ID')} Alamat IP`;
+        document.getElementById('resNetwork').innerText = data.network;
+        document.getElementById('resBroadcast').innerText = broadcastDisplay;
+        document.getElementById('resFirstHost').innerText = data.first_host;
+        document.getElementById('resLastHost').innerText = data.last_host;
+        document.getElementById('resHostRange').innerText = rangeDisplay;
+        document.getElementById('resBitmask').innerText = `${prefixVal} bit Network / ${32 - prefixVal} bit Host`;
+
+        // Show Success State
+        document.getElementById('subnetEmptyState').classList.add('hidden');
+        document.getElementById('subnetSuccessState').classList.remove('hidden');
+        document.getElementById('subnetErrorState').classList.add('hidden');
+
+        if (document.getElementById('btnStateSuccess')) {
+          document.getElementById('btnStateSuccess').classList.add('active');
+          document.getElementById('btnStateEmpty').classList.remove('active');
+          document.getElementById('btnStateError').classList.remove('active');
+        }
+      } catch (err) {
         document.getElementById('subnetEmptyState').classList.add('hidden');
         document.getElementById('subnetSuccessState').classList.add('hidden');
         document.getElementById('subnetErrorState').classList.remove('hidden');
-        document.getElementById('subnetErrorBannerMsg').innerText = "Terdapat kesalahan pada input IP atau prefix. Harap perbaiki field yang ditandai merah.";
-        document.getElementById('btnStateError').classList.add('active');
-        document.getElementById('btnStateSuccess').classList.remove('active');
-        document.getElementById('btnStateEmpty').classList.remove('active');
-        return;
+        document.getElementById('subnetErrorBannerMsg').innerText = "Gagal menghubungi endpoint API: " + err.message;
       }
-
-      // Mathematical Subnetting
-      const ipInt = ipToInt(ipVal);
-      const maskInt = prefixVal === 0 ? 0 : (~0 << (32 - prefixVal)) >>> 0;
-      const wildcardInt = (~maskInt) >>> 0;
-      const networkInt = (ipInt & maskInt) >>> 0;
-      const broadcastInt = (networkInt | wildcardInt) >>> 0;
-
-      const maskStr = intToIp(maskInt);
-      const wildcardStr = intToIp(wildcardInt);
-      const networkStr = intToIp(networkInt);
-      const broadcastStr = intToIp(broadcastInt);
-
-      let totalHosts = Math.pow(2, 32 - prefixVal);
-      let usableHosts = 0;
-      let firstHostStr = "-";
-      let lastHostStr = "-";
-
-      if (prefixVal === 32) {
-        usableHosts = 1;
-        firstHostStr = networkStr;
-        lastHostStr = networkStr;
-      } else if (prefixVal === 31) {
-        usableHosts = 2; // RFC 3021 Point-to-Point
-        firstHostStr = networkStr;
-        lastHostStr = broadcastStr;
-      } else {
-        usableHosts = totalHosts - 2;
-        firstHostStr = intToIp(networkInt + 1);
-        lastHostStr = intToIp(broadcastInt - 1);
-      }
-
-      // Detect Class
-      const firstOctet = parseInt(ipVal.split('.')[0], 10);
-      let ipClass = "Kelas C";
-      if (firstOctet >= 1 && firstOctet <= 126) ipClass = "Kelas A";
-      else if (firstOctet >= 128 && firstOctet <= 191) ipClass = "Kelas B";
-      else if (firstOctet >= 192 && firstOctet <= 223) ipClass = "Kelas C";
-      else if (firstOctet >= 224 && firstOctet <= 239) ipClass = "Kelas D (Multicast)";
-      else ipClass = "Kelas E (Eksperimental)";
-
-      // Update UI Elements
-      document.getElementById('sumCidrDisplay').innerText = `${networkStr}/${prefixVal}`;
-      document.getElementById('sumClassDisplay').innerText = `${ipClass} \u2022 Standar Subnet`;
-      document.getElementById('resSubnetMask').innerText = maskStr;
-      document.getElementById('resWildcardMask').innerText = `Wildcard: ${wildcardStr}`;
-      document.getElementById('resUsableHosts').innerText = usableHosts.toLocaleString('id-ID');
-      document.getElementById('resTotalHosts').innerText = `Total Alokasi: ${totalHosts.toLocaleString('id-ID')} Alamat IP`;
-      document.getElementById('resNetwork').innerText = networkStr;
-      document.getElementById('resBroadcast').innerText = broadcastStr;
-      document.getElementById('resFirstHost').innerText = firstHostStr;
-      document.getElementById('resLastHost').innerText = lastHostStr;
-      document.getElementById('resHostRange').innerText = `${firstHostStr} - ${lastHostStr}`;
-      document.getElementById('resBitmask').innerText = `${prefixVal} bit Network / ${32 - prefixVal} bit Host`;
-
-      // Show Success State
-      document.getElementById('subnetEmptyState').classList.add('hidden');
-      document.getElementById('subnetSuccessState').classList.remove('hidden');
-      document.getElementById('subnetErrorState').classList.add('hidden');
-
-      document.getElementById('btnStateSuccess').classList.add('active');
-      document.getElementById('btnStateEmpty').classList.remove('active');
-      document.getElementById('btnStateError').classList.remove('active');
     }
 
     // VLSM Add/Remove Host Rows
