@@ -979,8 +979,8 @@
           </svg>
         </div>
         <div class="brand-info">
-          <h1>Kalkulator Subnet & VLSM <span class="badge-edu">Modul Guru TKJ</span></h1>
-          <p>Alat peraga perhitungan CIDR, pembagian subnetting, dan alokasi VLSM presisi</p>
+          <h1>Kalkulator Subnet & VLSM SMK BRANTAS KARAANGKATES<span class="badge-edu">Modul Guru TKJ</span></h1>
+          <p>Alat peraga perhitungan CIDR, pembagian subnetting, dan alokasi VLSM presisi SMK BISA </p>
         </div>
       </div>
 
@@ -1447,7 +1447,8 @@
             </div>
             <h3>Tabel VLSM Belum Dihitung</h3>
             <p>Tentukan network awal beserta daftar host tiap departemen/laboratorium di panel kiri, lalu klik
-              <strong>"Hitung Tabel VLSM"</strong>.</p>
+              <strong>"Hitung Tabel VLSM"</strong>.
+            </p>
             <div class="empty-state-hints">
               <span class="hint-badge">&bull; Pengurutan descending otomatis</span>
               <span class="hint-badge">&bull; Mencegah pemborosan alamat IP</span>
@@ -1771,7 +1772,7 @@
 
       try {
         const response = await fetch(`/api/subnet?ip=${encodeURIComponent(ipVal)}&prefix=${encodeURIComponent(prefixVal)}`);
-        
+
         if (!response.ok) {
           const errData = await response.json().catch(() => ({ detail: "Gagal memproses perhitungan subnet." }));
           const errorMsg = errData.detail || "Terjadi kesalahan pada parameter subnet.";
