@@ -104,3 +104,17 @@ uv run python scripts/smoke_test.py http://127.0.0.1:8000
 ```bash
 docker rm -f subnet-app
 ```
+
+---
+
+## Deploy
+
+Aplikasi ini telah dideploy secara publik di platform Vercel:
+
+- **URL Produksi:** [https://subnet-calculator-sqa-nine.vercel.app](https://subnet-calculator-sqa-nine.vercel.app)
+
+### Menjalankan Smoke Test ke Server Produksi
+Untuk memastikan seluruh endpoint web dan API di lingkungan produksi berjalan dengan normal:
+```bash
+uv run python scripts/smoke_test.py https://subnet-calculator-sqa-nine.vercel.app
+```
