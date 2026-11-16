@@ -76,3 +76,31 @@ Lalu buka browser di alamat: [http://localhost:8000](http://localhost:8000).
 - **Host Terakhir**: $\text{Broadcast Address} - 1$ (untuk prefix $\le 30$).
 - **Jumlah Host Valid**: $2^{(32 - n)} - 2$ (dengan perlakuan khusus untuk $/31$ sesuai RFC 3021 dan $/32$).
 
+
+---
+
+## Docker
+
+Aplikasi ini dapat dikemas dan dijalankan menggunakan Docker:
+
+### 1. Build Image
+```bash
+docker build -t subnet-calculator .
+```
+
+### 2. Jalankan Container
+```bash
+docker run -d --name subnet-app -p 8000:8000 subnet-calculator
+```
+
+Aplikasi dapat diakses melalui browser di [http://localhost:8000](http://localhost:8000).
+
+### 3. Jalankan Smoke Test ke Container Lokal
+```bash
+uv run python scripts/smoke_test.py http://127.0.0.1:8000
+```
+
+### 4. Menghentikan & Menghapus Container
+```bash
+docker rm -f subnet-app
+```
