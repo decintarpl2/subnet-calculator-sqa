@@ -1,6 +1,7 @@
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 app = FastAPI(title="Kalkulator Subnet & VLSM IPv4")
 
@@ -145,3 +146,23 @@ def api_subnet(ip: str = Query(""), prefix: int | str = Query("")):
         return hitung_subnet(ip, prefix_int)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
+
+
+class VLSMRequest(BaseModel):
+    network: str
+    kebutuhan_host: list[int]
+
+
+def alokasi_vlsm(network_cidr: str, kebutuhan_host: list[int]) -> list[dict]:
+    """Membagi blok jaringan secara dinamis berdasarkan daftar kebutuhan host."""
+    raise NotImplementedError("Belum diimplementasikan")
+
+
+@app.post("/api/vlsm")
+def api_vlsm(req: VLSMRequest):
+    """Endpoint API perhitungan VLSM."""
+    try:
+        return alokasi_vlsm(req.network, req.kebutuhan_host)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
