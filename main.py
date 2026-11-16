@@ -1,8 +1,15 @@
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 
 app = FastAPI(title="Kalkulator Subnet & VLSM IPv4")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 def validate_ip(ip: str) -> list[int]:
@@ -145,3 +152,96 @@ def api_subnet(ip: str = Query(""), prefix: int | str = Query("")):
         return hitung_subnet(ip, prefix_int)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
+
+
+class VLSMRequest(BaseModel):
+    network: str
+    kebutuhan_host: list[int]
+
+
+def alokasi_vlsm(network_cidr: str, kebutuhan_host: list[int]) -> list[dict]:
+    """Membagi blok jaringan secara dinamis berdasarkan daftar kebutuhan host sesuai SPEC.md."""
+    if not isinstance(network_cidr, str) or "/" not in network_cidr:
+        raise ValueError("Network CIDR harus berformat IP/prefix (contoh: 192.168.1.0/24).")
+
+    parts = network_cidr.split("/")
+    if len(parts) != 2:
+        raise ValueError("Network CIDR harus berformat IP/prefix (contoh: 192.168.1.0/24).")
+
+    ip_str, prefix_str = parts[0], parts[1]
+    octets = validate_ip(ip_str)
+    prefix_val = validate_prefix(prefix_str)
+
+    ip_int = ip_to_int(octets)
+    mask_int = prefix_to_mask_int(prefix_val)
+
+    # Validasi bahwa network_cidr adalah alamat awal jaringan (Network Address) yang valid
+    network_int = ip_int & mask_int
+    if ip_int != network_int:
+        raise ValueError(
+            f"'{network_cidr}' bukan alamat awal jaringan (Network Address) yang valid. "
+            f"Alamat network yang benar adalah {int_to_ip(network_int)}/{prefix_val}."
+        )
+
+    # Validasi daftar kebutuhan host
+    if not isinstance(kebutuhan_host, list) or len(kebutuhan_host) == 0:
+        raise ValueError("Daftar kebutuhan host tidak boleh kosong.")
+
+    for h in kebutuhan_host:
+        if not isinstance(h, int) or isinstance(h, bool) or h < 1:
+            raise ValueError(
+                f"Kebutuhan host harus berupa bilangan bulat positif (minimal 1), didapat: {h}."
+            )
+
+    # Mekanisme Pengurutan: diurutkan secara menurun (dari terbesar ke terkecil)
+    sorted_kebutuhan = sorted(kebutuhan_host, reverse=True)
+
+    parent_capacity = 2 ** (32 - prefix_val)
+    current_ip_int = network_int
+    parent_end_int = network_int + parent_capacity
+
+    hasil: list[dict] = []
+    for h in sorted_kebutuhan:
+        # Ukuran Blok: berbasis pangkat 2 terkecil yang kapasitasnya >= (h + 2)
+        # dengan batas minimum blok adalah /30
+        target = h + 2
+        host_bits = 2  # minimum blok /30 -> host_bits minimal 2
+        while (1 << host_bits) < target:
+            host_bits += 1
+
+        allocated_prefix = 32 - host_bits
+        if allocated_prefix < 0:
+            raise ValueError(
+                f"Kebutuhan {h} host melebihi kapasitas seluruh ruang alamat IPv4."
+            )
+
+        block_size = 1 << host_bits
+
+        if current_ip_int + block_size > parent_end_int:
+            raise ValueError(
+                f"Kapasitas subnet induk {network_cidr} tidak mencukupi untuk mengalokasikan kebutuhan host."
+            )
+
+        current_ip_str = int_to_ip(current_ip_int)
+        sub_info = hitung_subnet(current_ip_str, allocated_prefix)
+
+        item = {
+            "kebutuhan": h,
+            "network_cidr": f"{current_ip_str}/{allocated_prefix}",
+            **sub_info,
+        }
+        hasil.append(item)
+
+        current_ip_int += block_size
+
+    return hasil
+
+
+@app.post("/api/vlsm")
+def api_vlsm(req: VLSMRequest):
+    """Endpoint API perhitungan VLSM."""
+    try:
+        return alokasi_vlsm(req.network, req.kebutuhan_host)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
