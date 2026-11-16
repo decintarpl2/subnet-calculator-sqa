@@ -1871,138 +1871,123 @@
       btn.closest('.vlsm-host-item').remove();
     }
 
-    // VLSM Calculation Engine
-    function calculateVlsm() {
+    // VLSM Calculation Engine (Connected to POST /api/vlsm)
+    async function calculateVlsm() {
       clearInputErrors();
       const rawCidr = document.getElementById('vlsmNetworkInput').value.trim();
-      const cidrParts = rawCidr.split('/');
-
-      let hasError = false;
-
-      if (cidrParts.length !== 2 || !validateIp(cidrParts[0])) {
-        document.getElementById('vlsmNetworkInput').classList.add('is-invalid');
-        const err = document.getElementById('vlsmNetworkError');
-        err.classList.remove('hidden');
-        document.getElementById('vlsmNetworkErrorText').innerText = "Format CIDR tidak valid! Contoh benar: 192.168.10.0/24";
-        hasError = true;
-      }
-
-      const majorPrefix = parseInt(cidrParts[1], 10);
-      if (isNaN(majorPrefix) || majorPrefix < 0 || majorPrefix > 30) {
-        document.getElementById('vlsmNetworkInput').classList.add('is-invalid');
-        const err = document.getElementById('vlsmNetworkError');
-        err.classList.remove('hidden');
-        document.getElementById('vlsmNetworkErrorText').innerText = "Prefix major network harus antara 0 s/d 30.";
-        hasError = true;
-      }
 
       // Collect host requirements
       const rows = document.querySelectorAll('#vlsmHostList .vlsm-host-item');
-      const requirements = [];
+      const items = [];
+      let hasClientInputError = false;
+
       rows.forEach((row, i) => {
         const name = row.querySelector('.dept-name').value.trim() || `Subnet ${i + 1}`;
-        const count = parseInt(row.querySelector('.host-count').value, 10);
-        if (isNaN(count) || count <= 0) {
-          hasError = true;
-        } else {
-          requirements.push({ name, requested: count });
+        const countVal = row.querySelector('.host-count').value.trim();
+        const count = parseInt(countVal, 10);
+        if (isNaN(count)) {
+          hasClientInputError = true;
         }
+        items.push({ name, count: isNaN(count) ? 0 : count });
       });
 
-      if (requirements.length === 0) {
+      if (items.length === 0) {
         document.getElementById('vlsmHostError').classList.remove('hidden');
-        hasError = true;
-      }
-
-      if (hasError) {
         document.getElementById('vlsmEmptyState').classList.add('hidden');
         document.getElementById('vlsmSuccessState').classList.add('hidden');
         document.getElementById('vlsmErrorState').classList.remove('hidden');
-        document.getElementById('vlsmErrorBannerMsg').innerText = "Periksa kembali format CIDR major network dan pastikan jumlah host bernilai minimal 1.";
+        document.getElementById('vlsmErrorBannerMsg').innerText = "Minimal harus ada 1 subnet dengan jumlah host minimal 1.";
         document.getElementById('btnStateError').classList.add('active');
         document.getElementById('btnStateSuccess').classList.remove('active');
         document.getElementById('btnStateEmpty').classList.remove('active');
         return;
       }
 
-      // Sort requirements descending (VLSM rule)
-      requirements.sort((a, b) => b.requested - a.requested);
+      try {
+        const payload = {
+          network: rawCidr,
+          kebutuhan_host: items.map(x => x.count)
+        };
 
-      const majorIpInt = ipToInt(cidrParts[0]);
-      const majorMaskInt = majorPrefix === 0 ? 0 : (~0 << (32 - majorPrefix)) >>> 0;
-      let currentIp = (majorIpInt & majorMaskInt) >>> 0;
-      const majorBroadcast = (currentIp | (~majorMaskInt >>> 0)) >>> 0;
+        const response = await fetch('/api/vlsm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-      const tbody = document.getElementById('vlsmTableBody');
-      tbody.innerHTML = '';
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({ detail: "Gagal memproses perhitungan VLSM." }));
+          const errorMsg = errData.detail || "Terjadi kesalahan pada alokasi VLSM.";
 
-      let totalAllocated = 0;
-      let overflow = false;
+          document.getElementById('vlsmNetworkInput').classList.add('is-invalid');
+          const err = document.getElementById('vlsmNetworkError');
+          err.classList.remove('hidden');
+          document.getElementById('vlsmNetworkErrorText').innerText = errorMsg;
 
-      requirements.forEach(req => {
-        // Find smallest prefix that accommodates req.requested + 2
-        let neededHosts = req.requested + 2;
-        let prefix = 32;
-        let size = 1;
-        while (prefix > 0) {
-          size = Math.pow(2, 32 - prefix);
-          if (size >= neededHosts) break;
-          prefix--;
+          document.getElementById('vlsmEmptyState').classList.add('hidden');
+          document.getElementById('vlsmSuccessState').classList.add('hidden');
+          document.getElementById('vlsmErrorState').classList.remove('hidden');
+          document.getElementById('vlsmErrorBannerMsg').innerText = errorMsg;
+
+          document.getElementById('btnStateError').classList.add('active');
+          document.getElementById('btnStateSuccess').classList.remove('active');
+          document.getElementById('btnStateEmpty').classList.remove('active');
+          return;
         }
 
-        const subnetMaskInt = (~0 << (32 - prefix)) >>> 0;
-        const subnetNetwork = currentIp;
-        const subnetBroadcast = (subnetNetwork + size - 1) >>> 0;
+        const data = await response.json();
 
-        if (subnetBroadcast > majorBroadcast) {
-          overflow = true;
-        }
+        // Sort items descending to match API result sorting
+        items.sort((a, b) => b.count - a.count);
 
-        const firstHost = intToIp(subnetNetwork + 1);
-        const lastHost = intToIp(subnetBroadcast - 1);
-        const allocatedHosts = size - 2;
-        totalAllocated += size;
+        const tbody = document.getElementById('vlsmTableBody');
+        tbody.innerHTML = '';
+        let totalAllocated = 0;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><strong>${req.name}</strong></td>
-          <td class="mono">${req.requested}</td>
-          <td class="mono"><span class="tag-status allocated">${allocatedHosts} (/${prefix})</span></td>
-          <td class="mono text-primary font-bold">${intToIp(subnetNetwork)}</td>
-          <td class="mono">${intToIp(subnetMaskInt)}</td>
-          <td class="mono">${firstHost} - ${lastHost}</td>
-          <td class="mono">${intToIp(subnetBroadcast)}</td>
-        `;
-        tbody.appendChild(tr);
+        data.forEach((sub, i) => {
+          const deptName = (items[i] && items[i].name) ? items[i].name : `Subnet ${i + 1}`;
+          const prefix = sub.network_cidr.split('/')[1];
+          const blockSize = Math.pow(2, 32 - parseInt(prefix, 10));
+          totalAllocated += blockSize;
 
-        // Next subnet starts after current broadcast
-        currentIp = subnetBroadcast + 1;
-      });
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${deptName}</strong></td>
+            <td class="mono">${sub.kebutuhan}</td>
+            <td class="mono"><span class="tag-status allocated">${sub.usable_hosts} (/${prefix})</span></td>
+            <td class="mono text-primary font-bold">${sub.network}</td>
+            <td class="mono">${sub.mask}</td>
+            <td class="mono">${sub.first_host} - ${sub.last_host}</td>
+            <td class="mono">${sub.broadcast || '-'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
 
-      if (overflow) {
+        // Update VLSM UI summary
+        document.getElementById('vlsmSummaryCount').innerText = `${data.length} Subnet Terdistribusi`;
+        const cidrParts = rawCidr.split('/');
+        const majorPrefix = (cidrParts.length === 2) ? parseInt(cidrParts[1], 10) : 24;
+        const majorCapacity = Math.pow(2, 32 - majorPrefix);
+        const efficiency = Math.min(100, Math.round((totalAllocated / majorCapacity) * 100));
+        document.getElementById('vlsmEfficiencyBadge').innerText = `Efisiensi Alokasi: ${efficiency}% (${totalAllocated}/${majorCapacity} IP)`;
+        document.getElementById('vlsmRemainingText').innerHTML = `Total alokasi <strong>${totalAllocated} IP</strong> dari <strong>${majorCapacity} IP</strong> kapasitas jaringan induk.`;
+
+        document.getElementById('vlsmEmptyState').classList.add('hidden');
+        document.getElementById('vlsmSuccessState').classList.remove('hidden');
+        document.getElementById('vlsmErrorState').classList.add('hidden');
+
+        document.getElementById('btnStateSuccess').classList.add('active');
+        document.getElementById('btnStateEmpty').classList.remove('active');
+        document.getElementById('btnStateError').classList.remove('active');
+      } catch (networkErr) {
         document.getElementById('vlsmEmptyState').classList.add('hidden');
         document.getElementById('vlsmSuccessState').classList.add('hidden');
         document.getElementById('vlsmErrorState').classList.remove('hidden');
-        document.getElementById('vlsmErrorBannerMsg').innerText = `Total alokasi host melebihi batas major network ${cidrParts[0]}/${majorPrefix}! Silakan gunakan prefix awal yang lebih besar.`;
+        document.getElementById('vlsmErrorBannerMsg').innerText = "Gagal menghubungi server API: " + networkErr.message;
         document.getElementById('btnStateError').classList.add('active');
         document.getElementById('btnStateSuccess').classList.remove('active');
-        return;
+        document.getElementById('btnStateEmpty').classList.remove('active');
       }
-
-      // Update VLSM UI summary
-      document.getElementById('vlsmSummaryCount').innerText = `${requirements.length} Subnet Terdistribusi`;
-      const majorCapacity = Math.pow(2, 32 - majorPrefix);
-      const efficiency = Math.min(100, Math.round((totalAllocated / majorCapacity) * 100));
-      document.getElementById('vlsmEfficiencyBadge').innerText = `Efisiensi Alokasi: ${efficiency}% (${totalAllocated}/${majorCapacity} IP)`;
-      document.getElementById('vlsmRemainingText').innerHTML = `Sisa ruang alamat: <strong>${intToIp(currentIp)}/${majorPrefix}</strong> siap digunakan untuk ekspansi berikutnya.`;
-
-      document.getElementById('vlsmEmptyState').classList.add('hidden');
-      document.getElementById('vlsmSuccessState').classList.remove('hidden');
-      document.getElementById('vlsmErrorState').classList.add('hidden');
-
-      document.getElementById('btnStateSuccess').classList.add('active');
-      document.getElementById('btnStateEmpty').classList.remove('active');
-      document.getElementById('btnStateError').classList.remove('active');
     }
 
     // Copy Utilities
